@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:vm="http://www.mulesoft.org/schema/mule/vm"
+xmlns:crypto="http://www.mulesoft.org/schema/mule/crypto"
+xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/crypto http://www.mulesoft.org/schema/mule/crypto/current/mule-crypto.xsd
+http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="a0e1172f-eca9-4a09-a87e-00cb9c7a66e2" >
+<http:listener-connection host="0.0.0.0" port="8081" />
+</http:listener-config>
+<crypto:jce-config name="Crypto_Jce" doc:name="Crypto Jce" doc:id="de44bc8f-2267-4b4d-a58f-a93f0877b377" keystore="sample.jceks" password="password" type="JCEKS">
+<crypto:jce-key-infos >
+<crypto:jce-symmetric-key-info keyId="sample" alias="sample" password="password" />
+</crypto:jce-key-infos>
+</crypto:jce-config>
+<vm:config name="VM_Config" doc:name="VM Config" doc:id="98333712-0c44-4443-a32b-e6b75304ea81" >
+<vm:queues >
+<vm:queue queueName="sample" />
+</vm:queues>
+</vm:config>
+<flow name="XmlEncryptionFlow" doc:id="8bf6a653-5012-4fc9-af06-f3ad4b920027" >
+<http:listener doc:name="Listener" doc:id="0e4b2ff7-379e-45a8-82ff-cfa429b49f13" config-ref="HTTP_Listener_config" path="/xmlcryptography"/>
+		<logger level="INFO" doc:name="Logger" doc:id="7109307b-1f76-4549-a70b-e963f0f230ca" message="incoming payload : #[payload]"/>
+		<crypto:xml-encrypt doc:name="Xml encrypt" doc:id="61e315d0-c92a-4047-979c-9c8a5645b4a4" target="encryptedSSN" keyId="sample" config-ref="Crypto_Jce" elementPath="/data/password">
+		</crypto:xml-encrypt>
+<logger level="INFO" doc:name="Logger" doc:id="75ca75a8-a657-4d30-b6a8-e0da07e782d3" message="after encryption : #[payload]"/>
+		<logger level="INFO" doc:name="Logger" doc:id="1e05f8a5-5a05-4a9d-b844-c45669ab2e72" message="++++++++++++SSN Encrypted Payload : #[vars.encryptedSSN]"/>
+		<vm:publish-consume queueName="sample" doc:name="Publish consume" doc:id="6eabc6d4-73f0-4f99-8b29-11321b363a65" config-ref="VM_Config">
+			<vm:content ><![CDATA[#[vars.encryptedSSN]]]></vm:content>
+		</vm:publish-consume>
+		<ee:transform doc:name="Transform Message" doc:id="228d6a5e-f333-4492-814d-2fb20bbd4126" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload.a]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+</flow>
+<flow name="XmlDecryptionFlow" doc:id="20929f78-cac2-4fc4-ab72-ef62053f65cf" >
+		<vm:listener queueName="sample" doc:name="Listener" doc:id="015739e8-dba1-4e08-ab2e-ab40b8a1583f" config-ref="VM_Config" timeout="30"/>
+		<crypto:xml-decrypt doc:name="Xml decrypt" doc:id="93cf0754-1d56-496c-925f-8d1b40545beb" keyId="sample" config-ref="Crypto_Jce">
+		</crypto:xml-decrypt>
+<logger level="INFO" doc:name="Logger" doc:id="c2e5c441-4a3f-4f31-9e46-9a1c781decd4" message="+++Decrypted+++"/>
+		<logger level="INFO" doc:name="Logger" doc:id="4fc15122-6c00-41ff-88ed-dfebc29c14af" message=" #[payload]"/>
+
+</flow>
+</mule>
